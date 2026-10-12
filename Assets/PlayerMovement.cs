@@ -1,11 +1,12 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerMovement : MonoBehaviour
 {
     [Header("Settings")]
     [SerializeField] private float moveSpeed = 5f;
-    [SerializeField] private float lookSpeed = 2f;
+    [SerializeField] private float lookSpeed = 0.1f;
     [SerializeField] private float jumpForce = 8f;
     [SerializeField] private float gravity = 20f;
 
@@ -16,8 +17,6 @@ public class PlayerMovement : MonoBehaviour
     void Start()
     {
         controller = GetComponent<CharacterController>();
-        
-        // Lock cursor to center of screen
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
@@ -25,28 +24,37 @@ public class PlayerMovement : MonoBehaviour
     void Update()
     {
         // Rotation (Mouse Look)
-        float mouseX = Input.GetAxis("Mouse X") * lookSpeed;
-        float mouseY = Input.GetAxis("Mouse Y") * lookSpeed;
+        Vector2 mouseDelta = Mouse.current.delta.ReadValue();
+        float mouseX = mouseDelta.x * lookSpeed;
+        float mouseY = mouseDelta.y * lookSpeed;
 
         rotationX -= mouseY;
         rotationX = Mathf.Clamp(rotationX, -90f, 90f);
 
-        // Rotate camera (attached as child) and body
         Camera cam = GetComponentInChildren<Camera>();
         if (cam != null) cam.transform.localRotation = Quaternion.Euler(rotationX, 0, 0);
         transform.Rotate(Vector3.up * mouseX);
 
         // Movement (WASD)
-        float moveX = Input.GetAxis("Horizontal");
-        float moveZ = Input.GetAxis("Vertical");
+        Vector2 moveInput = Vector2.zero;
+        if (Keyboard.current != null)
+        {
+            float moveX = 0;
+            float moveZ = 0;
+            if (Keyboard.current.wKey.isPressed) moveZ = 1;
+            if (Keyboard.current.sKey.isPressed) moveZ = -1;
+            if (Keyboard.current.aKey.isPressed) moveX = -1;
+            if (Keyboard.current.dKey.isPressed) moveX = 1;
+            moveInput = new Vector2(moveX, moveZ);
+        }
 
         if (controller.isGrounded)
         {
-            moveDirection = new Vector3(moveX, 0, moveZ);
+            moveDirection = new Vector3(moveInput.x, 0, moveInput.y);
             moveDirection = transform.TransformDirection(moveDirection);
             moveDirection *= moveSpeed;
 
-            if (Input.GetButton("Jump"))
+            if (Keyboard.current != null && Keyboard.current.spaceKey.isPressed)
             {
                 moveDirection.y = jumpForce;
             }
