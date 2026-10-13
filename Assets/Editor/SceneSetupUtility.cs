@@ -26,9 +26,14 @@ public class SceneSetupUtility
         // Save Scene
         string scenePath = "Assets/Scenes/TestScene.unity";
         System.IO.Directory.CreateDirectory("Assets/Scenes");
-        UnityEditor.SceneManagement.EditorSceneManager.SaveCurrentOpenScene();
-        UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.DefaultGameObjects, UnityEditor.SceneManagement.NewSceneMode.Single);
-        UnityEditor.SceneManagement.EditorSceneManager.SaveScene(UnityEditor.SceneManager.GetActiveScene(), scenePath);
+        
+        // Mark scene dirty so Unity saves changes directly to disk in editor
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorSceneManager.SaveScene(SceneManager.GetActiveScene(), scenePath);
+        
+        // Register created objects into the undo stack / scene persistence
+        Undo.RegisterCreatedObjectUndo(floor, "Create Floor");
+        Undo.RegisterCreatedObjectUndo(player, "Create Player");
 
         Debug.Log("Scene TestScene created & saved at " + scenePath);
     }
