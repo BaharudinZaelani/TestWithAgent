@@ -8,6 +8,7 @@ public class PlayerController : MonoBehaviour
     public float moveSpeed = 5f;
     public float acceleration = 30f;
     public float jumpForce = 5f;
+    public Transform cameraTransform;
 
     [Header("Ground Check")]
     public float groundDistance = 0.2f;
@@ -26,6 +27,11 @@ public class PlayerController : MonoBehaviour
         rb.freezeRotation = true;
         // ponytail: interpolation smooth render frame; matikan jika pakai custom kinematic solver
         rb.interpolation = RigidbodyInterpolation.Interpolate;
+
+        if (cameraTransform == null && Camera.main != null)
+        {
+            cameraTransform = Camera.main.transform;
+        }
     }
 
     void Update()
@@ -52,7 +58,20 @@ public class PlayerController : MonoBehaviour
     {
         CheckGrounded();
 
-        Vector3 targetVelocity = inputDir * moveSpeed;
+        Vector3 moveDirection = inputDir;
+        if (cameraTransform != null)
+        {
+            Vector3 camForward = cameraTransform.forward;
+            Vector3 camRight = cameraTransform.right;
+            camForward.y = 0f;
+            camRight.y = 0f;
+            camForward.Normalize();
+            camRight.Normalize();
+
+            moveDirection = (camRight * inputDir.x + camForward * inputDir.z).normalized;
+        }
+
+        Vector3 targetVelocity = moveDirection * moveSpeed;
         Vector3 currentHorizontalVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
 
         Vector3 smoothedVel = Vector3.MoveTowards(
