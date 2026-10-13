@@ -31,9 +31,9 @@ public class PlayerController : MonoBehaviour
 
         Vector3 moveDir = new Vector3(moveX, 0f, moveZ).normalized;
         Vector3 velocity = moveDir * moveSpeed;
-        velocity.y = rb.velocity.y;
+        velocity.y = rb.linearVelocity.y;
 
-        rb.velocity = velocity;
+        rb.linearVelocity = velocity;
 
         if (Keyboard.current.spaceKey.wasPressedThisFrame && isGrounded)
         {
