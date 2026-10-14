@@ -12,7 +12,8 @@ public class PlayerController : MonoBehaviour
 
     [Header("Look Settings")]
     public Transform cameraHolder;
-    public float mouseSensitivity = 0.15f;
+    public float mouseSensitivity = 0.1f;
+    public float lookSmoothTime = 0.03f;
     public float minPitch = -85f;
     public float maxPitch = 85f;
 
@@ -23,8 +24,11 @@ public class PlayerController : MonoBehaviour
     private Rigidbody rb;
     private Collider col;
     private Vector2 moveInput;
-    private Vector2 lookInput;
+    private Vector2 targetLookDelta;
+    private Vector2 currentLookDelta;
+    private Vector2 lookSmoothVel;
     private float pitch;
+    private float yaw;
     private bool jumpRequested;
     private bool isSprinting;
     private bool isGrounded;
@@ -39,6 +43,8 @@ public class PlayerController : MonoBehaviour
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+
+        yaw = transform.eulerAngles.y;
 
         if (cameraHolder == null && Camera.main != null)
         {
@@ -86,23 +92,32 @@ public class PlayerController : MonoBehaviour
 
         if (Mouse.current != null)
         {
-            lookInput = Mouse.current.delta.ReadValue() * mouseSensitivity;
+            targetLookDelta = Mouse.current.delta.ReadValue() * mouseSensitivity;
         }
         else
         {
-            lookInput = Vector2.zero;
+            targetLookDelta = Vector2.zero;
         }
     }
 
     void HandleLook()
     {
-        // FPS standard: mouse horizontal putar body player, mouse vertical putar camera holder
-        transform.Rotate(Vector3.up * lookInput.x);
+        // Smooth input delta untuk hilangkan jitter mouse polling rate
+        currentLookDelta = Vector2.SmoothDamp(
+            currentLookDelta,
+            targetLookDelta,
+            ref lookSmoothVel,
+            lookSmoothTime
+        );
+
+        yaw += currentLookDelta.x;
+        pitch -= currentLookDelta.y;
+        pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+
+        transform.rotation = Quaternion.Euler(0f, yaw, 0f);
 
         if (cameraHolder != null)
         {
-            pitch -= lookInput.y;
-            pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
             cameraHolder.localRotation = Quaternion.Euler(pitch, 0f, 0f);
         }
     }
