@@ -5,10 +5,16 @@ using UnityEngine.InputSystem;
 public class PlayerController : MonoBehaviour
 {
     [Header("Movement Settings")]
-    public float moveSpeed = 5f;
-    public float acceleration = 30f;
+    public float moveSpeed = 6f;
+    public float sprintSpeed = 10f;
+    public float acceleration = 40f;
     public float jumpForce = 5f;
-    public Transform cameraTransform;
+
+    [Header("Look Settings")]
+    public Transform cameraHolder;
+    public float mouseSensitivity = 0.15f;
+    public float minPitch = -85f;
+    public float maxPitch = 85f;
 
     [Header("Ground Check")]
     public float groundDistance = 0.2f;
@@ -16,8 +22,11 @@ public class PlayerController : MonoBehaviour
 
     private Rigidbody rb;
     private Collider col;
-    private Vector3 inputDir;
+    private Vector2 moveInput;
+    private Vector2 lookInput;
+    private float pitch;
     private bool jumpRequested;
+    private bool isSprinting;
     private bool isGrounded;
 
     void Start()
@@ -25,16 +34,37 @@ public class PlayerController : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         col = GetComponent<Collider>();
         rb.freezeRotation = true;
-        // ponytail: interpolation smooth render frame; matikan jika pakai custom kinematic solver
+        // ponytail: interpolation smooth render frame
         rb.interpolation = RigidbodyInterpolation.Interpolate;
 
-        if (cameraTransform == null && Camera.main != null)
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
+        if (cameraHolder == null && Camera.main != null)
         {
-            cameraTransform = Camera.main.transform;
+            cameraHolder = Camera.main.transform;
+        }
+
+        if (cameraHolder != null)
+        {
+            pitch = cameraHolder.localEulerAngles.x;
+            if (pitch > 180f) pitch -= 360f;
         }
     }
 
     void Update()
+    {
+        HandleInput();
+        HandleLook();
+    }
+
+    void FixedUpdate()
+    {
+        CheckGrounded();
+        HandleMovement();
+    }
+
+    void HandleInput()
     {
         if (Keyboard.current == null) return;
 
@@ -46,34 +76,44 @@ public class PlayerController : MonoBehaviour
         if (Keyboard.current.sKey.isPressed || Keyboard.current.downArrowKey.isPressed) moveZ -= 1f;
         if (Keyboard.current.wKey.isPressed || Keyboard.current.upArrowKey.isPressed) moveZ += 1f;
 
-        inputDir = new Vector3(moveX, 0f, moveZ).normalized;
+        moveInput = new Vector2(moveX, moveZ).normalized;
+        isSprinting = Keyboard.current.leftShiftKey.isPressed;
 
         if (Keyboard.current.spaceKey.wasPressedThisFrame && isGrounded)
         {
             jumpRequested = true;
         }
+
+        if (Mouse.current != null)
+        {
+            lookInput = Mouse.current.delta.ReadValue() * mouseSensitivity;
+        }
+        else
+        {
+            lookInput = Vector2.zero;
+        }
     }
 
-    void FixedUpdate()
+    void HandleLook()
     {
-        CheckGrounded();
+        // FPS standard: mouse horizontal putar body player, mouse vertical putar camera holder
+        transform.Rotate(Vector3.up * lookInput.x);
 
-        Vector3 moveDirection = inputDir;
-        if (cameraTransform != null)
+        if (cameraHolder != null)
         {
-            Vector3 camForward = cameraTransform.forward;
-            Vector3 camRight = cameraTransform.right;
-            camForward.y = 0f;
-            camRight.y = 0f;
-            camForward.Normalize();
-            camRight.Normalize();
-
-            moveDirection = (camRight * inputDir.x + camForward * inputDir.z).normalized;
+            pitch -= lookInput.y;
+            pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+            cameraHolder.localRotation = Quaternion.Euler(pitch, 0f, 0f);
         }
+    }
 
-        Vector3 targetVelocity = moveDirection * moveSpeed;
+    void HandleMovement()
+    {
+        float targetSpeed = isSprinting ? sprintSpeed : moveSpeed;
+        Vector3 moveDirection = (transform.forward * moveInput.y + transform.right * moveInput.x).normalized;
+        Vector3 targetVelocity = moveDirection * targetSpeed;
+
         Vector3 currentHorizontalVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-
         Vector3 smoothedVel = Vector3.MoveTowards(
             currentHorizontalVel,
             targetVelocity,
@@ -91,7 +131,7 @@ public class PlayerController : MonoBehaviour
 
     void CheckGrounded()
     {
-        // ponytail: raycast sederhana dari center collider; ganti spherecast bila karakter naik turun lereng
+        // ponytail: raycast sederhana dari center collider
         Vector3 origin = col != null ? col.bounds.center : transform.position;
         float extraDist = col != null ? (col.bounds.extents.y + groundDistance) : 1f;
 
